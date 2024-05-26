@@ -80,32 +80,25 @@ void AGameCharacter::BeginPlay()
 
 	GEngine->AddOnScreenDebugMessage(-1, 15.0f, FColor::Green, "BEGINPLAY!");
 }
-void AGameCharacter::EndPlay() {
+void AGameCharacter::EndPlay(const EEndPlayReason::Type EndPlayReason) {
+	Super::EndPlay(EndPlayReason);
+	GetWorldTimerManager().ClearTimer(TimerHandle);
+	GetWorldTimerManager().ClearTimer(InitTimerHandle);
+	GetWorldTimerManager().ClearTimer(UpdateTimerHandle);
 	GetWorldTimerManager().ClearTimer(AsyncInitMobileTimerHandle);
-	
+	GetWorldTimerManager().ClearTimer(UnpauseTimerHandle);
 
 	// Pause the game by setting the global time dilation to 0
-	UGameplayStatics::SetGlobalTimeDilation(GetWorld(), 0.0f);
 
-	// Set a timer to call ResumeGame after 4 seconds
-	GetWorldTimerManager().SetTimer(UnpauseTimerHandle, this, &AGameCharacter::ResumeGame, 4.0f, false);
 	Shutdown();
 	GEngine->AddOnScreenDebugMessage(-1, 15.0f, FColor::Green, "ENDPLAY!");
+
 
 }
 void AGameCharacter::ResumeGame()
 {
 	// Restore the global time dilation to 1 (normal speed)
 	UGameplayStatics::SetGlobalTimeDilation(GetWorld(), 1.0f);
-}
-void AGameCharacter::PossessedBy(AController* NewController)
-{
-	Super::PossessedBy(NewController);
-
-	if (NewController)
-	{
-		Controller = NewController;
-	}
 }
 
 void AGameCharacter::Init() {
@@ -157,9 +150,9 @@ void AGameCharacter::Init() {
 					}
 					//GEngine->AddOnScreenDebugMessage(-1, 15.0f, FColor::Blue, FString::Printf(TEXT("%d %d %d"), X, Y, Sw));
 				}
-				FTimerHandle TimerHandle;
+		
 				
-					GetWorld()->GetTimerManager().SetTimer(TimerHandle, this, &AGameCharacter::MoveFunction, 0.10f, true, 0.0f);
+				GetWorld()->GetTimerManager().SetTimer(TimerHandle, this, &AGameCharacter::MoveFunction, 0.001f, true, 0.0f);
 				
 			}
 			});
@@ -276,25 +269,25 @@ void AGameCharacter::MoveFunction() {
 	FVector currentDirectionY = FRotationMatrix(Controller->GetControlRotation()).GetScaledAxis(EAxis::Y);
 	switch (DirectionX) {
 	case 1:
-		AddMovementInput(currentDirectionX, 1.0);
+		AddMovementInput(currentDirectionX, 3.0);
 		break;
 	case 0:
 		AddMovementInput(currentDirectionX, 0.0);
 		break;
 	case -1:
-		AddMovementInput(currentDirectionX, -1.0);
+		AddMovementInput(currentDirectionX, -3.0);
 		break;
 	}
 
 	switch (DirectionY) {
 	case 1:
-		AddMovementInput(currentDirectionY, 1.0);
+		AddMovementInput(currentDirectionY, 3.0);
 		break;
 	case 0:
 		AddMovementInput(currentDirectionY, 0.0);
 		break;
 	case -1:
-		AddMovementInput(currentDirectionY, -1.0);
+		AddMovementInput(currentDirectionY, -3.0);
 		break;
 	}
 }

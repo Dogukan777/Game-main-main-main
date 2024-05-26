@@ -69,7 +69,7 @@ public:
 
 	bool LeftMouseButtonIsBeingPressed;
 	bool RightMouseButtonIsBeingPressed;
-	virtual void PossessedBy(AController* NewController) override;
+
 private:
 	int32 directionX;
 	int32 directionY;
@@ -85,7 +85,7 @@ private:
 	float X;
 	float Y;
 	float Z;
-	
+	FTimerHandle TimerHandle;
 	FTimerHandle InitTimerHandle;
 	FTimerHandle UpdateTimerHandle;
 	FTimerHandle AsyncInitMobileTimerHandle;
@@ -99,7 +99,7 @@ private:
 
 protected:
 	virtual void BeginPlay();
-	virtual void EndPlay();
+	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 
 public:
 
