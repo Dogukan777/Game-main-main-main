@@ -64,11 +64,8 @@ public:
 	void MoveForward(float Value);
 	void TurnAtRate(float Rate);
 	void LookUpAtRate(float Rate);
-	void MouseTick(float Rate);
-
-	void OnLeftMouseButtonPressed();
-	
-	void OnLeftMouseButtonReleased();
+	void StartAsyncInitMobileTimer();
+	void ResumeGame();
 
 	bool LeftMouseButtonIsBeingPressed;
 	bool RightMouseButtonIsBeingPressed;
@@ -81,8 +78,18 @@ private:
 	float LastX;
 	float LastY;
 	int fire;
+	float newX;
+	float newY;
+	float deltaAngleX;
+	float deltaAngleY;
+	float X;
+	float Y;
+	float Z;
+	
 	FTimerHandle InitTimerHandle;
 	FTimerHandle UpdateTimerHandle;
+	FTimerHandle AsyncInitMobileTimerHandle;
+	FTimerHandle UnpauseTimerHandle;
 	UPROPERTY(VisibleAnywhere, Category = Camera)
 	class USpringArmComponent* CameraArm;
 
@@ -140,6 +147,4 @@ public:
 	void setScore(int newScore);
 	UFUNCTION(BlueprintCallable)
 	int getScore() { return Score; }
-	UFUNCTION(BlueprintImplementableEvent, Category = "Teleport")
-	void OnMapChange();
 };

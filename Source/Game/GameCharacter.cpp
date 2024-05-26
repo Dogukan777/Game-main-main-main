@@ -18,6 +18,7 @@
 #include "IImageWrapperModule.h"
 #include "Modules/ModuleManager.h"
 #include "Runtime/Online/WebSockets/Public/WebSocketsModule.h"
+#include <Kismet/GameplayStatics.h>
 DEFINE_LOG_CATEGORY(LogTemplateCharacter);
 
 //////////////////////////////////////////////////////////////////////////
@@ -50,11 +51,11 @@ AGameCharacter::AGameCharacter()
 	Mesh1P->SetRelativeLocation(FVector(0.0f, 0.f, -150.f));
 	/*---------------------------------------------------------------------*/
 
-	MobileSocket = FWebSocketsModule::Get().CreateWebSocket("ws://172.20.10.2:3030");
-	SensorSocket = FWebSocketsModule::Get().CreateWebSocket("ws://172.20.10.2:3000");
+	MobileSocket = FWebSocketsModule::Get().CreateWebSocket("ws://192.168.247.137:3030");
+	SensorSocket = FWebSocketsModule::Get().CreateWebSocket("ws://192.168.247.137:3000");
 	WebSocket = FWebSocketsModule::Get().CreateWebSocket("ws://45.55.49.156:8080");
 	RenderTarget = CreateDefaultSubobject<UTextureRenderTarget2D>(TEXT("RenderTarget"));
-	RenderTarget->InitAutoFormat(1000, 800); // Çözünürlük ayarlarý
+	RenderTarget->InitAutoFormat(700, 640); // Çözünürlük ayarlarý
 	RenderTarget->ClearColor = FLinearColor::Black; // RenderTarget'ý temizle (siyah)
 	RenderTarget->UpdateResourceImmediate(true);
 
@@ -69,29 +70,33 @@ AGameCharacter::AGameCharacter()
 
 void AGameCharacter::BeginPlay()
 {
-
 	Super::BeginPlay();
-	if (!Controller)
-	{
-		Controller = GetController();
-		if (!Controller)
-		{
-			GEngine->AddOnScreenDebugMessage(-1, 15.0f, FColor::Red, "Controller is still null in BeginPlay!");
-			return;
-		}
-	}
+	StartAsyncInitMobileTimer();
 	Init(); /* Kol için çalýþan fonksiyon */
 	InitMobileSensor(); /* Kafa hareketlerini jiroskopu aktif eder */
+	WebSocket->Connect();
 	MobileSocket->Connect();
 	SensorSocket->Connect();
 
-
+	GEngine->AddOnScreenDebugMessage(-1, 15.0f, FColor::Green, "BEGINPLAY!");
 }
 void AGameCharacter::EndPlay() {
-	if (!Controller)
-	{
-		Controller = GetController();
-	}
+	GetWorldTimerManager().ClearTimer(AsyncInitMobileTimerHandle);
+	
+
+	// Pause the game by setting the global time dilation to 0
+	UGameplayStatics::SetGlobalTimeDilation(GetWorld(), 0.0f);
+
+	// Set a timer to call ResumeGame after 4 seconds
+	GetWorldTimerManager().SetTimer(UnpauseTimerHandle, this, &AGameCharacter::ResumeGame, 4.0f, false);
+	Shutdown();
+	GEngine->AddOnScreenDebugMessage(-1, 15.0f, FColor::Green, "ENDPLAY!");
+
+}
+void AGameCharacter::ResumeGame()
+{
+	// Restore the global time dilation to 1 (normal speed)
+	UGameplayStatics::SetGlobalTimeDilation(GetWorld(), 1.0f);
 }
 void AGameCharacter::PossessedBy(AController* NewController)
 {
@@ -103,93 +108,71 @@ void AGameCharacter::PossessedBy(AController* NewController)
 	}
 }
 
-
 void AGameCharacter::Init() {
-
-	
-	if (!FModuleManager::Get().IsModuleLoaded("WebSockets"))
-	{
-
+	if (!FModuleManager::Get().IsModuleLoaded("WebSockets")) {
 		FModuleManager::Get().LoadModule("WebSockets");
 	}
 
-	WebSocket->OnConnected().AddLambda([]()
-		{
+	
+		WebSocket->OnConnected().AddLambda([]() {
 			GEngine->AddOnScreenDebugMessage(-1, 15.0f, FColor::Green, "Successfully connected");
-		});
+			});
 
-	WebSocket->OnConnectionError().AddLambda([](const FString& Error)
-		{
+		WebSocket->OnConnectionError().AddLambda([](const FString& Error) {
 			GEngine->AddOnScreenDebugMessage(-1, 15.0f, FColor::Red, Error);
-		});
+			});
 
-	WebSocket->OnClosed().AddLambda([](int32 StatusCode, const FString& Reason, bool bWasClean)
-		{
+		WebSocket->OnClosed().AddLambda([](int32 StatusCode, const FString& Reason, bool bWasClean) {
 			GEngine->AddOnScreenDebugMessage(-1, 15.0f, bWasClean ? FColor::Green : FColor::Red, "Connection closed " + Reason);
-		});
+			});
 
-	WebSocket->OnMessage().AddLambda([this](const FString& MessageString)
-		{
+		WebSocket->OnMessage().AddLambda([this](const FString& MessageString) {
 			if (!MessageString.IsEmpty()) {
-				//FTimerHandle TimerHandle;
 				TArray<FString> Parts;
 				MessageString.ParseIntoArray(Parts, TEXT(" "), true);
 
-				if (Parts.Num() >= 3)
-				{
+				if (Parts.Num() >= 3) {
 					int X = FCString::Atoi(*Parts[0]);
 					int Y = FCString::Atoi(*Parts[1]);
-					Sw = FCString::Atoi(*Parts[2]);
-			
+					 Sw = FCString::Atoi(*Parts[2]);
 
-
-			
-					if (X == 1)
-					{
+					if (X == 1) {
 						setDirectionX(1);
 					}
-					else if (X == -1)
-					{
+					else if (X == -1) {
 						setDirectionX(-1);
 					}
-					else
-					{
+					else {
 						setDirectionX(0);
 					}
 
-					if (Y == 1)
-					{
+					if (Y == 1) {
 						setDirectionY(1);
 					}
-					else if (Y == -1)
-					{
-						setDirectionY(-1);;
+					else if (Y == -1) {
+						setDirectionY(-1);
 					}
-					else
-					{
+					else {
 						setDirectionY(0);
 					}
-					GEngine->AddOnScreenDebugMessage(-1, 15.0f, FColor::Blue, FString::Printf(TEXT("%d %d %d"), X, Y, Sw));
+					//GEngine->AddOnScreenDebugMessage(-1, 15.0f, FColor::Blue, FString::Printf(TEXT("%d %d %d"), X, Y, Sw));
 				}
 				FTimerHandle TimerHandle;
-				if (!Controller)
-				{
-					Controller = GetController();
-				}
-				else {
+				
 					GetWorld()->GetTimerManager().SetTimer(TimerHandle, this, &AGameCharacter::MoveFunction, 0.10f, true, 0.0f);
-				}
 				
 			}
-		});
+			});
 
-	WebSocket->OnMessageSent().AddLambda([](const FString& MessageString)
-		{
+		WebSocket->OnMessageSent().AddLambda([](const FString& MessageString) {
 			GEngine->AddOnScreenDebugMessage(-1, 15.0f, FColor::Yellow, "Sent message: " + MessageString);
-		});
+			});
 
-	WebSocket->Connect();
+		WebSocket->Connect();
+	
+	
 }
+
 
 void AGameCharacter::InitMobileSensor() {
 	LastX = 0.0f;
@@ -198,22 +181,6 @@ void AGameCharacter::InitMobileSensor() {
 	if (!FModuleManager::Get().IsModuleLoaded("WebSockets")) {
 		FModuleManager::Get().LoadModule("WebSockets");
 	}
-
-	if (!SensorSocket) {
-		GEngine->AddOnScreenDebugMessage(-1, 15.0f, FColor::Red, "SensorSocket is null!");
-		return;
-	}
-
-	if (!Controller)
-	{
-		Controller = GetController();
-		if (!Controller)
-		{
-			GEngine->AddOnScreenDebugMessage(-1, 15.0f, FColor::Red, "Controller is still null in InitMobileSensor!");
-			return;
-		}
-	}
-
 
 	SensorSocket->OnConnected().AddLambda([]() {
 		GEngine->AddOnScreenDebugMessage(-1, 15.0f, FColor::Green, "Successfully connected");
@@ -228,19 +195,20 @@ void AGameCharacter::InitMobileSensor() {
 		});
 
 	SensorSocket->OnMessage().AddLambda([this](const FString& MessageString) {
+		
 		if (!MessageString.IsEmpty()) {
 			TArray<FString> Parts;
 			MessageString.ParseIntoArray(Parts, TEXT(" "), true);
 
 			if (Parts.Num() >= 3) {
-				float X = FCString::Atof(*Parts[0]);
-				float Y = FCString::Atof(*Parts[1]);
-				float Z = FCString::Atof(*Parts[2]);
+				X = FCString::Atof(*Parts[0]);
+				Y = FCString::Atof(*Parts[1]);
+				Z = FCString::Atof(*Parts[2]);
 
-				float newX = 0.0f;
-				float newY = 0.0f;
+				newX = 0.0f;
+				newY = 0.0f;
 				if (FMath::Abs(LastX - X) > 0.001f) {
-					float deltaAngleX = LastX - X;
+					deltaAngleX = LastX - X;
 					if (Z < 0.0) {
 						deltaAngleX = deltaAngleX * (-1);
 					}
@@ -248,11 +216,7 @@ void AGameCharacter::InitMobileSensor() {
 				}
 				if (Y<10.00 && Y> -10.00) {
 					if (FMath::Abs(LastY - Y) > 0.10f) {
-						float deltaAngleY;
-
 						deltaAngleY = LastY - Y;
-
-
 						newY = deltaAngleY * -3.5f;
 					}
 				}
@@ -260,21 +224,9 @@ void AGameCharacter::InitMobileSensor() {
 
 				LastX = X;
 				LastY = Y;
-
-				if (!Controller)
-				{
-					Controller = GetController();
-				}
-
-				if (Controller)
-				{
-					AddControllerYawInput(newX);
-					AddControllerPitchInput(newY);
-				}
-				else {
-
-				}
-
+				AddControllerYawInput(newX);
+				AddControllerPitchInput(newY);
+				
 			}
 		}
 		});
@@ -288,17 +240,17 @@ void AGameCharacter::InitMobileSensor() {
 
 
 void AGameCharacter::Shutdown() {
-
-	if (WebSocket->IsConnected()) {
+	if (WebSocket.IsValid() && WebSocket->IsConnected()) {
 		WebSocket->Close();
 	}
-	if (MobileSocket->IsConnected()) {
+	if (MobileSocket.IsValid() && MobileSocket->IsConnected()) {
 		MobileSocket->Close();
 	}
-	if (SensorSocket->IsConnected()) {
+	if (SensorSocket.IsValid() && SensorSocket->IsConnected()) {
 		SensorSocket->Close();
 	}
 }
+
 void AGameCharacter::setDirectionX(int32 DirectionX) {
 	directionX = DirectionX;
 }
@@ -344,10 +296,8 @@ void AGameCharacter::MoveFunction() {
 	case -1:
 		AddMovementInput(currentDirectionY, -1.0);
 		break;
-
 	}
 }
-
 
 void AGameCharacter::AsyncInitMobile() {
 	AsyncTask(ENamedThreads::GameThread, [this]() {
@@ -375,18 +325,16 @@ void AGameCharacter::AsyncInitMobile() {
 			});
 		});
 }
-
+void AGameCharacter::StartAsyncInitMobileTimer()
+{
+	// Set the timer to call AsyncInitMobile every 0.1 seconds
+	GetWorldTimerManager().SetTimer(AsyncInitMobileTimerHandle, this, &AGameCharacter::AsyncInitMobile, 0.05f, true);
+}
 void AGameCharacter::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
-	// Controller null ise tekrar atama yap
 
-	AsyncInitMobile();
-	if (LeftMouseButtonIsBeingPressed)
-	{
-		AddMovementInput(GetActorForwardVector());
-	}
 }
 
 //////////////////////////////////////////////////////////////////////////// Input
@@ -398,25 +346,7 @@ void AGameCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCompo
 	PlayerInputComponent->BindAxis("MoveForward", this, &AGameCharacter::MoveForward);
 	PlayerInputComponent->BindAxis("Turn", this, &AGameCharacter::TurnAtRate);
 	PlayerInputComponent->BindAxis("LookUp", this, &AGameCharacter::LookUpAtRate);
-	PlayerInputComponent->BindAction("LeftMouseButton", IE_Pressed, this, &AGameCharacter::OnLeftMouseButtonPressed);
-	PlayerInputComponent->BindAction("LeftMouseButton", IE_Released, this, &AGameCharacter::OnLeftMouseButtonReleased);
-	
-	
 }
-void AGameCharacter::OnLeftMouseButtonPressed()
-{
-	GEngine->AddOnScreenDebugMessage(-1, 15.0f, FColor::Blue, FString::Printf(TEXT("True")));
-	LeftMouseButtonIsBeingPressed = true;
-}
-
-void AGameCharacter::OnLeftMouseButtonReleased()
-{
-	GEngine->AddOnScreenDebugMessage(-1, 15.0f, FColor::Blue, FString::Printf(TEXT("False")));
-	LeftMouseButtonIsBeingPressed = false;
-}
-
-	
-
 
 
 void AGameCharacter::SetHasRifle(bool bNewHasRifle)
