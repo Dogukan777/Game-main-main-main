@@ -24,7 +24,7 @@ AAllyActor::AAllyActor()
 void AAllyActor::BeginPlay()
 {
     Super::BeginPlay();
-    Speed = 100.0f;
+    Speed = 300.0f;
     PlayerCharacter = Cast<AGameCharacter>(UGameplayStatics::GetPlayerCharacter(GetWorld(), 0));
     MeshComp->OnComponentHit.AddDynamic(this, &AAllyActor::OnHit);  // set up a notification for when this component hits something blocking
 }
@@ -38,10 +38,6 @@ void AAllyActor::Tick(float DeltaTime)
     FVector CurrentLocation = GetActorLocation();
     if (CurrentLocation.X < 7000.0f)
     {
-        if (DestroyEffect)
-        {
-            UGameplayStatics::SpawnEmitterAtLocation(GetWorld(), DestroyEffect, GetActorLocation());
-        }
         Destroy();
     }
 }
@@ -55,7 +51,6 @@ void AAllyActor::OnHit(UPrimitiveComponent* HitComp, AActor* OtherActor, UPrimit
             if (actor != nullptr)
             {
                 GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, FString::Printf(TEXT("Ally Hit")));
-                UGameplayStatics::SpawnEmitterAtLocation(GetWorld(), DestroyEffect, GetActorLocation());
                 PlayerCharacter->Score -= 5;
                 this->Destroy();
             }

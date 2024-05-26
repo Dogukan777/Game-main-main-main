@@ -30,7 +30,7 @@ AEnemyActor::AEnemyActor()
 void AEnemyActor::BeginPlay()
 {
 	Super::BeginPlay();
-	Speed = 100.0f;
+	Speed = 300.0f;
 	PlayerCharacter = Cast<AGameCharacter>(UGameplayStatics::GetPlayerCharacter(GetWorld(), 0));
 	MeshComp->OnComponentHit.AddDynamic(this, &AEnemyActor::OnHit);		// set up a notification for when this component hits something blocking
 }

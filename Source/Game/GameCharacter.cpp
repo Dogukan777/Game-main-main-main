@@ -347,16 +347,18 @@ void AGameCharacter::MoveFunction() {
 
 	}
 }
+
+
 void AGameCharacter::AsyncInitMobile() {
-	AsyncTask(ENamedThreads::GameThread, [this]() {  // Ýþ parçacýðýný GameThread olarak deðiþtirin
+	AsyncTask(ENamedThreads::GameThread, [this]() {
 		if (!FModuleManager::Get().IsModuleLoaded("WebSockets")) {
 			FModuleManager::Get().LoadModule("WebSockets");
 		}
 
 		SceneCapture->TextureTarget = RenderTarget;
-
 		SceneCapture->CaptureSource = ESceneCaptureSource::SCS_FinalColorLDR;
 		SceneCapture->CaptureScene();
+	
 
 		// Render target'dan piksel verilerini alýr
 		FTextureRenderTargetResource* RenderTargetResource = RenderTarget->GameThread_GetRenderTargetResource();
@@ -364,16 +366,16 @@ void AGameCharacter::AsyncInitMobile() {
 		RenderTargetResource->ReadPixels(Bitmap);
 		TArray<uint8> PNGData;
 		FImageUtils::CompressImageArray(RenderTarget->SizeX, RenderTarget->SizeY, Bitmap, PNGData);
-		FString Base64EncodedString = FBase64::Encode(PNGData);
-		AsyncTask(ENamedThreads::GameThread, [this, Base64EncodedString]() {
-			if (MobileSocket.IsValid() && MobileSocket->IsConnected())
-			{
-				MobileSocket->Send(Base64EncodedString);
+
+		AsyncTask(ENamedThreads::GameThread, [this, PNGData]() {
+			if (MobileSocket.IsValid() && MobileSocket->IsConnected()) {
+				MobileSocket->Send(PNGData.GetData(), PNGData.Num(),true);
+				
 			}
 			});
-
 		});
 }
+
 void AGameCharacter::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
